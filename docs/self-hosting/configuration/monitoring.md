@@ -1,4 +1,4 @@
-# Prometheus metrics
+# Monitoring
 
 Drive ships **opt-in** Prometheus metrics, following the same contract as
 [Docs](https://github.com/suitenumerique/docs/blob/main/documentation/metrics.md):
@@ -7,7 +7,7 @@ same Helm values. They are **disabled by default**: when
 `PROMETHEUS_METRICS_ENABLED` is unset, nothing is installed and `/metrics` is
 a 404.
 
-This is not the [usage metrics route](metrics.md)
+This is not the [usage metrics route](../../integrating/usage-metrics.md)
 (`/external_api/v1.0/metrics/usage/`), which exports per user or per
 organization storage to external tools as JSON.
 
@@ -30,7 +30,7 @@ scrape_configs:
       type: Bearer
       credentials_file: /etc/prometheus/drive-api-key
     static_configs:
-      - targets: ["drive-backend:8000"]
+      - targets: ["drive-backend:80"]
 ```
 
 | Variable | Description | Default |

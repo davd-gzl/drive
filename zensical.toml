@@ -1,0 +1,83 @@
+[project]
+site_name = "La Suite Drive documentation"
+repo_url = "https://github.com/suitenumerique/drive"
+repo_name = "suitenumerique/drive"
+edit_uri = "edit/main/docs/"
+extra_css = ["stylesheets/extra.css"]
+extra_javascript = ["javascripts/mermaid-zoom.js", "javascripts/console-copy.js"]
+
+nav = [
+  {"Home" = "index.md"},
+  {"Using Drive" = [
+    {"Getting started" = "user/getting-started.md"},
+    {"Sharing" = "user/sharing.md"},
+    {"Finding and organising files" = "user/organising.md"},
+  ]},
+  {"How Drive works" = "overview/how-drive-works.md"},
+  {"Self-hosting" = [
+    {"Overview" = "self-hosting/index.md"},
+    {"Install on Kubernetes" = "self-hosting/kubernetes.md"},
+    {"Configuration" = [
+      {"Sign-in" = "self-hosting/configuration/authentication.md"},
+      {"Online editing" = "self-hosting/configuration/online-editing.md"},
+      {"Malware detection" = "self-hosting/configuration/malware-detection.md"},
+      {"Full-text search" = "self-hosting/configuration/search.md"},
+      {"Storage quotas" = "self-hosting/configuration/quotas.md"},
+      {"Encrypted storage" = "self-hosting/configuration/encryption.md"},
+      {"Look and feel" = "self-hosting/configuration/theming.md"},
+      {"Monitoring" = "self-hosting/configuration/monitoring.md"},
+      {"Merging accounts" = "self-hosting/configuration/account-merging.md"},
+    ]},
+    {"Upgrading" = "https://github.com/suitenumerique/drive/blob/main/UPGRADE.md"},
+  ]},
+  {"Integrating" = [
+    {"External API" = "integrating/external-api.md"},
+    {"API reference" = "reference/swagger.html"},
+    {"Usage metrics" = "integrating/usage-metrics.md"},
+  ]},
+  {"Reference" = [
+    {"Environment variables" = "reference/env-variables.md"},
+    {"Changelog" = "https://github.com/suitenumerique/drive/blob/main/CHANGELOG.md"},
+  ]},
+  {"Contributing" = [
+    {"Develop locally" = "contributing/develop.md"},
+    {"Test on a phone" = "contributing/local-network.md"},
+    {"Check performance" = "contributing/scaling.md"},
+    {"Explorer selection store" = "contributing/explorer-selection-store.md"},
+    {"Release" = "contributing/release.md"},
+    {"Pull requests" = "https://github.com/suitenumerique/drive/blob/main/CONTRIBUTING.md"},
+  ]},
+]
+
+[project.theme]
+features = [
+  "content.code.copy",
+  "content.action.edit",
+  "content.action.view",
+  "navigation.footer",
+  "navigation.top",
+  "search.highlight",
+]
+
+# Follows the system theme until the reader picks light or dark.
+[[project.theme.palette]]
+media = "(prefers-color-scheme)"
+toggle = { icon = "lucide/sun-moon", name = "Switch to light mode" }
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+toggle = { icon = "lucide/sun", name = "Switch to dark mode" }
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+toggle = { icon = "lucide/moon", name = "Switch to system preference" }
+
+[project.extra]
+social = [
+  { icon = "fontawesome/brands/github", link = "https://github.com/suitenumerique/drive", name = "Drive on GitHub" },
+  { icon = "simple/matrix", link = "https://matrix.to/#/#drive-official:matrix.org", name = "Drive's Matrix room" },
+]
+
+[project.plugins.glightbox]

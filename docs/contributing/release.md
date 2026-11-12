@@ -44,7 +44,7 @@ Whenever we are cooking a new release (e.g. `4.18.1`) we should follow a standar
 
     Doing this triggers the CI and tells it to build the new Docker image versions that you targeted earlier in the Helm files.
 
-8.  Ensure the new [backend](https://hub.docker.com/r/lasuite/drive-frontend/tags) and [frontend](https://hub.docker.com/r/lasuite/drive-frontend/tags) image tags are on Docker Hub.
+8.  Ensure the new [backend](https://hub.docker.com/r/lasuite/drive-backend/tags) and [frontend](https://hub.docker.com/r/lasuite/drive-frontend/tags) image tags are on Docker Hub.
 9.  The release is now done!
 
 ## Deploying a new version

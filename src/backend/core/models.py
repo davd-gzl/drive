@@ -766,7 +766,7 @@ class IdInPath(models.Func):  # pylint: disable=abstract-method
     accesses of the user for each listed item (305k index lookups). With IdInPath
     it takes 5ms, with the same results. Do not switch back to `__ancestors` here:
     its `@>` operator can only use the GiST index of paths, and Postgres misestimates
-    it, so it picks the wrong side of the join. See docs/scaling.md.
+    it, so it picks the wrong side of the join. See docs/contributing/scaling.md.
     """
 
     arity = 2

@@ -1,28 +1,38 @@
-# Use Drive as a Resource Server
+# External API
 
-Drive implements resource server, so it means it can be used from an external app to perform some operation using the dedicated API.
+Another application can act in Drive on behalf of a user: list their files,
+create folders, upload, share. It calls `/external_api/v1.0/` with the access
+token the user signed in to it with, and Drive checks that token with your
+sign-in provider. In OpenID Connect's words, Drive is then a *resource server*.
 
-> **Note:** This feature might be subject to future evolutions. The API endpoints, configuration options, and behavior may change in future versions.
+Every route and its fields are in the [API reference](../reference/swagger.html),
+under **External API**: it lists them all, and the `EXTERNAL_API` setting
+decides which ones answer. The routes and their rules may still change between
+versions.
 
-## Prerequisites
+## Turn it on
 
-In order to activate the resource server on Drive you need to setup the following environement variables
+Register Drive at your provider as a client allowed to introspect tokens, then
+set on the backend:
 
-```
+```bash title="Backend environment"
 OIDC_RESOURCE_SERVER_ENABLED=True
-OIDC_OP_URL=
-OIDC_OP_INTROSPECTION_ENDPOINT=
-OIDC_RS_CLIENT_ID=
-OIDC_RS_CLIENT_SECRET=
-OIDC_RS_AUDIENCE_CLAIM=
-OIDC_RS_ALLOWED_AUDIENCES=
+OIDC_OP_URL=https://id.example.com/realms/drive
+OIDC_OP_INTROSPECTION_ENDPOINT=https://id.example.com/realms/drive/protocol/openid-connect/token/introspect
+OIDC_RS_CLIENT_ID=drive-resource-server
+OIDC_RS_CLIENT_SECRET=<its secret>
+OIDC_RS_ALLOWED_AUDIENCES=my-app
 ```
 
-It implements the resource server using `django-lasuite`, see the [documentation](https://github.com/suitenumerique/django-lasuite/blob/main/documentation/how-to-use-oidc-resource-server-backend.md)
+[`OIDC_RS_ALLOWED_AUDIENCES`](../reference/env-variables.md#OIDC_RS_ALLOWED_AUDIENCES)
+lists the applications whose tokens Drive accepts, as named in the claim
+[`OIDC_RS_AUDIENCE_CLAIM`](../reference/env-variables.md#OIDC_RS_AUDIENCE_CLAIM),
+`client_id` by default. The token check comes from
+[django-lasuite](https://github.com/suitenumerique/django-lasuite/blob/main/documentation/how-to-use-oidc-resource-server-backend.md).
 
 ## Customise allowed routes
 
-Configure the `EXTERNAL_API` setting to control which routes and actions are available in the external API. Set it via the `EXTERNAL_API` environment variable (as JSON) or in Django settings.
+Configure the `EXTERNAL_API` setting to control which routes and actions are available in the external API. Set it as the `EXTERNAL_API` environment variable, a Python dictionary. It replaces the whole default: a route left out is turned off, so copy every key you keep.
 
 Default configuration:
 
@@ -52,15 +62,16 @@ EXTERNAL_API = {
 - `items`: Controls `/external_api/v1.0/items/`. Available actions: `list`, `retrieve`, `create`, `update`, `partial_update`, `destroy`, `children`, `upload_ended`, `move`, `restore`, `trashbin`, `hard_delete`, `tree`, `breadcrumb`, `link_configuration`, `favorite`, `media_auth`, `wopi`, `convert`, `favorite_list`, `recents`, `deletion_info`, `search`, `batch_share`, `unlock`, `restrict`, `leave`, `download`, `export`, `duplicate`
 - `item_access`: Controls `/external_api/v1.0/items/{id}/accesses/`. Available actions: `list`, `retrieve`, `create`, `update`, `partial_update`, `destroy`
 - `item_invitation`: Controls `/external_api/v1.0/items/{id}/invitations/`. Available actions: `list`, `retrieve`, `create`, `update`, `partial_update`, `destroy`
+- `users`: Controls `/external_api/v1.0/users/`. Available actions: `list`, `get_me`, `contacts`, `update`, `partial_update`
 
 Each endpoint has `enabled` (boolean) and `actions` (list of allowed actions). Only actions explicitly listed are accessible.
 
 ## Customise created item attributes per audience
 
-Configure the `EXTERNAL_API_AUD_ITEM_ATTRIBUTES` setting to apply extra attributes to items
-created through the external API, depending on the token audience of the request (the claim
-configured by `OIDC_RS_AUDIENCE_CLAIM`). Set it via the `EXTERNAL_API_AUD_ITEM_ATTRIBUTES`
-environment variable (as JSON) or in Django settings.
+The `EXTERNAL_API_AUD_ITEM_ATTRIBUTES` setting gives extra attributes to the
+items each calling application creates, keyed by the application's name in
+`OIDC_RS_AUDIENCE_CLAIM`. Set it as an environment variable, a Python
+dictionary.
 
 ```python
 EXTERNAL_API_AUD_ITEM_ATTRIBUTES = {
@@ -116,99 +127,81 @@ Only an owner can grant the `owner` role, or change or delete an owner access. T
 
 Invitations target emails with no Drive account yet, through `/external_api/v1.0/items/{id}/invitations/`. All actions require an administrator or owner, except `list` which returns an empty list to other users. Only an owner can invite with the `owner` role. Creating an invitation for the email of a registered user returns a 400, unless `OIDC_ALLOW_DUPLICATE_EMAILS` is enabled.
 
-## Request Drive
+## Call Drive
 
-In order to request drive from an external resource provider, you need to implement the basic setup of `django-lasuite` [Using the OIDC Authentication Backend to request a resource server](https://github.com/suitenumerique/django-lasuite/blob/main/documentation/how-to-use-oidc-call-to-resource-server.md)
+The calling application signs its users in through the same provider, keeps
+their access token, and sends it to Drive's `/external_api/v1.0/` routes.
+django-lasuite's guide to
+[calling a resource server](https://github.com/suitenumerique/django-lasuite/blob/main/documentation/how-to-use-oidc-call-to-resource-server.md)
+sets that up for a Django application. The examples below are views of such an
+application.
 
-Then you can requests some routes that are available at `/external_api/v1.0/*`, here are some examples of what you can do.
+### Upload a file
 
-#### Upload a file
-
-Here is an example of a view that create a file on the main workspace in Drive.
+This view of the calling application uploads a file to the root of the user's
+Drive. `DRIVE_API` is the calling application's own setting, such as
+`https://drive.example.com/external_api/v1.0`.
 
 ```python
-    @method_decorator(refresh_oidc_access_token)
-    def upload_file(self, request):
-        """
-        Create a new file in the main workspace.
-        """
+import os
 
-        # Get the access token from the session
-        access_token = request.session.get('oidc_access_token')
+import requests
+from django.conf import settings
+from django.utils.decorators import method_decorator
+from lasuite.oidc_login.decorators import refresh_oidc_access_token
+from rest_framework.response import Response
 
-        # Get the main workspace
-        response = requests.get(
-            f"{settings.DRIVE_API}/items/",
-            headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
+
+@method_decorator(refresh_oidc_access_token)
+def upload_file(self, request):
+    """Upload sample.txt to the root of the user's Drive."""
+    access_token = request.session.get("oidc_access_token")
+    headers = {"Authorization": f"Bearer {access_token}"}
+    path = os.path.join(os.path.dirname(__file__), "sample.txt")
+
+    # Create the file with its size: Drive answers with an upload address
+    response = requests.post(
+        f"{settings.DRIVE_API}/items/",
+        json={"type": "file", "filename": "sample.txt", "size": os.path.getsize(path)},
+        headers=headers,
+    )
+    response.raise_for_status()
+    item = response.json()
+
+    # Send the file to that address. The ACL must equal Drive's
+    # AWS_S3_UPLOAD_ACL, private by default; leave it out when that is "default"
+    with open(path, "rb") as f:
+        upload = requests.put(
+            item["policy"],
+            data=f.read(),
+            headers={"Content-Type": "text/plain", "x-amz-acl": "private"},
         )
-        response.raise_for_status()
-        data = response.json()
-        items = data['results']
-        main_workspace = None
-        for item in items:
-            if item['main_workspace']:
-                main_workspace = item
-                break
+    upload.raise_for_status()
 
-        if not main_workspace:
-            return drf.response.Response(status=404, data={"error": "No main workspace found"})
-
-        import os
-        sample_file_path = os.path.join(os.path.dirname(__file__), "sample.txt")
-
-        # Reserve the file size before requesting an upload authorization.
-        response = requests.post(
-            f"{settings.DRIVE_API}/items/{main_workspace['id']}/children/",
-            json={
-                "type": "file",
-                "filename": "test.txt",
-                "size": os.path.getsize(sample_file_path),
-            },
-            headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
-        )
-        response.raise_for_status()
-        item = response.json()
-        policy = item['policy']
-
-        # Upload the raw file using the size-bound presigned URL
-        with open(sample_file_path, "rb") as f:
-            upload_response = requests.put(
-                policy,
-                data=f.read(),
-                headers={
-                    "Content-Type": "text/plain",
-                    "x-amz-acl": "private"
-                }
-            )
-            upload_response.raise_for_status()
-
-        # Tell the Drive API that the upload is ended
-        response = requests.post(
-            f"{settings.DRIVE_API}/items/{item['id']}/upload-ended/",
-            json={},
-            headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
-        )
-        response.raise_for_status()
-
-        return drf.response.Response(data)
+    # Tell Drive the upload ended
+    response = requests.post(
+        f"{settings.DRIVE_API}/items/{item['id']}/upload-ended/",
+        json={},
+        headers=headers,
+    )
+    response.raise_for_status()
+    return Response(response.json())
 ```
 
-#### Create a new folder
+### Create a new folder
 
-Using the same logic as the previous example, you can create a folder in the main workspace.
+Create a folder at the root with `POST items/`, or inside a folder with
+`POST items/{id}/children/`:
 
 ```python
 response = requests.post(
-    f"{settings.DRIVE_API}/items/{main_workspace['id']}/children/",
-    json={
-        "type": "folder",
-        "title": "My folder",
-    },
-    headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
+    f"{settings.DRIVE_API}/items/{parent_id}/children/",
+    json={"type": "folder", "title": "My folder"},
+    headers=headers,
 )
 ```
 
-#### Share an item
+### Share an item
 
 In `EXTERNAL_API`, enable `item_access` and `item_invitation` with the `create` action, and add `list` to `users`. The user search tolerates typos in emails, so compare the returned email with the expected one before sharing. It only returns active users: the invitation returns a 400 for the email of an inactive account, unless `OIDC_ALLOW_DUPLICATE_EMAILS` is enabled.
 
@@ -237,13 +230,10 @@ else:
 response.raise_for_status()
 ```
 
-#### Get user information
+### Get user information
 
-The same way, you can use the /me endpoint to get user information.
+`users/me/` returns the signed-in user:
 
 ```python
-response = requests.get(
-    "{settings.DRIVE_API}/users/me/",
-    headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
-)
+response = requests.get(f"{settings.DRIVE_API}/users/me/", headers=headers)
 ```

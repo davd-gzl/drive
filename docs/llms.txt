@@ -1,0 +1,33 @@
+# La Suite Drive
+
+> Open source file storage and sharing, self-hostable under MIT. Drive stores
+> files in an S3 bucket, shares them with people and links, opens office files
+> in Collabora or OnlyOffice, and signs users in through OpenID Connect.
+
+## Using Drive
+
+- [Getting started](user/getting-started.md): sign in, add, open and act on files
+- [Sharing](user/sharing.md): people, roles and links
+- [Finding and organising files](user/organising.md): search, move, trash
+
+## Self-hosting
+
+- [Self-hosting](self-hosting/index.md): what Drive needs and how to configure it
+- [Install on Kubernetes](self-hosting/kubernetes.md): the Helm chart, from a test cluster to production
+- [Sign-in](self-hosting/configuration/authentication.md)
+- [Online editing](self-hosting/configuration/online-editing.md)
+- [Malware detection](self-hosting/configuration/malware-detection.md)
+- [Full-text search](self-hosting/configuration/search.md)
+- [Storage quotas](self-hosting/configuration/quotas.md)
+- [Encrypted storage](self-hosting/configuration/encryption.md)
+- [Look and feel](self-hosting/configuration/theming.md)
+- [Monitoring](self-hosting/configuration/monitoring.md)
+- [Merging accounts](self-hosting/configuration/account-merging.md)
+- [Environment variables](reference/env-variables.md): every setting, grouped by feature
+
+## Developers
+
+- [How Drive works](overview/how-drive-works.md): the pieces, uploads, downloads and rights
+- [External API](integrating/external-api.md)
+- [Usage metrics](integrating/usage-metrics.md)
+- [Develop locally](contributing/develop.md)
